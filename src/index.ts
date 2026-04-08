@@ -75,7 +75,7 @@ const CREDENTIALS_PATH =
     path.join(CONFIG_DIR, "credentials.json");
 
 // Type definitions for Gmail API responses
-interface GmailMessagePart {
+export interface GmailMessagePart {
     partId?: string;
     mimeType?: string;
     filename?: string;
@@ -110,7 +110,9 @@ let oauth2Client: OAuth2Client;
  * Recursively extract email body content from MIME message parts
  * Handles complex email structures with nested parts
  */
-function extractEmailContent(messagePart: GmailMessagePart): EmailContent {
+export function extractEmailContent(
+    messagePart: GmailMessagePart,
+): EmailContent {
     // Initialize containers for different content types
     let textContent = "";
     let htmlContent = "";
@@ -1280,7 +1282,13 @@ async function main() {
     server.connect(transport);
 }
 
-main().catch((error) => {
-    console.error("Server error:", error);
-    process.exit(1);
-});
+// Only run main when this file is the direct entry point (not imported by tests)
+const currentFile = fileURLToPath(import.meta.url);
+const entryFile = process.argv[1] ? path.resolve(process.argv[1]) : "";
+
+if (currentFile === entryFile) {
+    main().catch((error) => {
+        console.error("Server error:", error);
+        process.exit(1);
+    });
+}
