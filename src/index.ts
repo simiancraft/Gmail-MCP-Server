@@ -20,6 +20,8 @@ import {
     createFilter,
     deleteFilter,
     filterTemplates,
+    formatFilterAction,
+    formatFilterCriteria,
     type GmailFilterAction,
     type GmailFilterCriteria,
     getFilter,
@@ -53,7 +55,11 @@ import {
     SendEmailSchema,
     UpdateLabelSchema,
 } from "./schemas.js";
-import { createEmailMessage, createEmailWithNodemailer } from "./utl.js";
+import {
+    createEmailMessage,
+    createEmailWithNodemailer,
+    encodeBase64Url,
+} from "./utl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const _require = createRequire(import.meta.url);
@@ -391,11 +397,7 @@ async function main() {
                     message = await createEmailWithNodemailer(validatedArgs);
 
                     if (action === "send") {
-                        const encodedMessage = Buffer.from(message)
-                            .toString("base64")
-                            .replace(/\+/g, "-")
-                            .replace(/\//g, "_")
-                            .replace(/=+$/, "");
+                        const encodedMessage = encodeBase64Url(message);
 
                         const result = await gmail.users.messages.send({
                             userId: "me",
@@ -417,11 +419,7 @@ async function main() {
                         };
                     } else {
                         // For drafts with attachments, use the raw message
-                        const encodedMessage = Buffer.from(message)
-                            .toString("base64")
-                            .replace(/\+/g, "-")
-                            .replace(/\//g, "_")
-                            .replace(/=+$/, "");
+                        const encodedMessage = encodeBase64Url(message);
 
                         const messageRequest = {
                             raw: encodedMessage,
@@ -449,11 +447,7 @@ async function main() {
                     // For emails without attachments, use the existing simple method
                     message = createEmailMessage(validatedArgs);
 
-                    const encodedMessage = Buffer.from(message)
-                        .toString("base64")
-                        .replace(/\+/g, "-")
-                        .replace(/\//g, "_")
-                        .replace(/=+$/, "");
+                    const encodedMessage = encodeBase64Url(message);
 
                     // Define the type for messageRequest
                     interface GmailMessageRequest {
@@ -979,26 +973,10 @@ async function main() {
                         validatedArgs.action,
                     );
 
-                    // Format criteria for display
-                    const criteriaText = Object.entries(validatedArgs.criteria)
-                        .filter(([_, value]) => value !== undefined)
-                        .map(([key, value]) => `${key}: ${value}`)
-                        .join(", ");
-
-                    // Format actions for display
-                    const actionText = Object.entries(validatedArgs.action)
-                        .filter(
-                            ([_, value]) =>
-                                value !== undefined &&
-                                (Array.isArray(value)
-                                    ? value.length > 0
-                                    : true),
-                        )
-                        .map(
-                            ([key, value]) =>
-                                `${key}: ${Array.isArray(value) ? value.join(", ") : value}`,
-                        )
-                        .join(", ");
+                    const criteriaText = formatFilterCriteria(
+                        validatedArgs.criteria,
+                    );
+                    const actionText = formatFilterAction(validatedArgs.action);
 
                     return {
                         content: [
@@ -1027,29 +1005,12 @@ async function main() {
 
                     const filtersText = filters
                         .map((filter: any) => {
-                            const criteriaEntries = Object.entries(
+                            const criteriaEntries = formatFilterCriteria(
                                 filter.criteria || {},
-                            )
-                                .filter(([_, value]) => value !== undefined)
-                                .map(([key, value]) => `${key}: ${value}`)
-                                .join(", ");
-
-                            const actionEntries = Object.entries(
+                            );
+                            const actionEntries = formatFilterAction(
                                 filter.action || {},
-                            )
-                                .filter(
-                                    ([_, value]) =>
-                                        value !== undefined &&
-                                        (Array.isArray(value)
-                                            ? value.length > 0
-                                            : true),
-                                )
-                                .map(
-                                    ([key, value]) =>
-                                        `${key}: ${Array.isArray(value) ? value.join(", ") : value}`,
-                                )
-                                .join(", ");
-
+                            );
                             return `ID: ${filter.id}\nCriteria: ${criteriaEntries}\nActions: ${actionEntries}\n`;
                         })
                         .join("\n");
@@ -1071,24 +1032,10 @@ async function main() {
                         validatedArgs.filterId,
                     );
 
-                    const criteriaText = Object.entries(result.criteria || {})
-                        .filter(([_, value]) => value !== undefined)
-                        .map(([key, value]) => `${key}: ${value}`)
-                        .join(", ");
-
-                    const actionText = Object.entries(result.action || {})
-                        .filter(
-                            ([_, value]) =>
-                                value !== undefined &&
-                                (Array.isArray(value)
-                                    ? value.length > 0
-                                    : true),
-                        )
-                        .map(
-                            ([key, value]) =>
-                                `${key}: ${Array.isArray(value) ? value.join(", ") : value}`,
-                        )
-                        .join(", ");
+                    const criteriaText = formatFilterCriteria(
+                        result.criteria || {},
+                    );
+                    const actionText = formatFilterAction(result.action || {});
 
                     return {
                         content: [

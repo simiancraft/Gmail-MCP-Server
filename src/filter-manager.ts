@@ -217,3 +217,26 @@ export const filterTemplates = {
         },
     }),
 };
+
+export function formatFilterCriteria(
+    criteria: Record<string, unknown>,
+): string {
+    return Object.entries(criteria)
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(", ");
+}
+
+export function formatFilterAction(action: Record<string, unknown>): string {
+    return Object.entries(action)
+        .filter(
+            ([_, value]) =>
+                value !== undefined &&
+                (Array.isArray(value) ? value.length > 0 : true),
+        )
+        .map(
+            ([key, value]) =>
+                `${key}: ${Array.isArray(value) ? value.join(", ") : value}`,
+        )
+        .join(", ");
+}

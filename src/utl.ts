@@ -17,6 +17,14 @@ function encodeEmailHeader(text: string): string {
     return text;
 }
 
+export function encodeBase64Url(message: string): string {
+    return Buffer.from(message)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+}
+
 export const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
