@@ -32,7 +32,13 @@
     "claude",
     "auto-auth"
   ],
-  "author": "gongrzhe",
+  "contributors": [
+    "gongrzhe",
+    {
+      "name": "the-simian",
+      "email": "harlinjesse@gmail.com"
+    }
+  ],
   "license": "ISC",
   "repository": {
     "type": "git",
