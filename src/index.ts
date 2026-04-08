@@ -1308,6 +1308,7 @@ async function main() {
                                     text: `Failed to download attachment: ${error.message}`,
                                 },
                             ],
+                            isError: true,
                         };
                     }
                 }
@@ -1323,6 +1324,7 @@ async function main() {
                         text: `Error: ${error.message}`,
                     },
                 ],
+                isError: true,
             };
         }
     });
