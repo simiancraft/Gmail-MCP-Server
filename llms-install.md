@@ -1,17 +1,26 @@
-# Gmail AutoAuth MCP Installation Guide
+# Gmail MCP Server - Installation Guide
 
-This guide will help you install and configure the Gmail AutoAuth MCP server for managing Gmail operations through Claude Desktop with auto authentication support.
+This guide will help you install and configure the Gmail MCP Server for managing Gmail operations through an MCP client with auto authentication support.
+
+> This is a fork of [gongrzhe/server-gmail-autoauth-mcp](https://github.com/gongrzhe/server-gmail-autoauth-mcp). Install from this repository directly.
 
 ## Requirements
 
-- Node.js and npm installed
+- [Bun](https://bun.sh/) installed
 - Access to create a Google Cloud Project
-- Local directory for configuration storage
 - Web browser for OAuth authentication
 
 ## Installation Steps
 
-1. First, create a Google Cloud Project and obtain the necessary credentials:
+1. Clone and build:
+   ```bash
+   git clone https://github.com/simiancraft/Gmail-MCP-Server.git
+   cd Gmail-MCP-Server
+   bun install
+   bun run build
+   ```
+
+2. Create a Google Cloud Project and obtain credentials:
    ```
    1. Go to Google Cloud Console (https://console.cloud.google.com)
    2. Create a new project or select an existing one
@@ -25,15 +34,11 @@ This guide will help you install and configure the Gmail AutoAuth MCP server for
       - Rename it to gcp-oauth.keys.json
    ```
 
-2. Set up the configuration directory:
+3. Set up configuration and authenticate:
    ```bash
    mkdir -p ~/.gmail-mcp
    mv gcp-oauth.keys.json ~/.gmail-mcp/
-   ```
-
-3. Run authentication:
-   ```bash
-   npx @gongrzhe/server-gmail-autoauth-mcp auth
+   bun dist/index.js auth
    ```
    This will:
    - Look for gcp-oauth.keys.json in current directory or ~/.gmail-mcp/
@@ -41,23 +46,19 @@ This guide will help you install and configure the Gmail AutoAuth MCP server for
    - Launch browser for Google authentication
    - Save credentials as ~/.gmail-mcp/credentials.json
 
-4. Configure Claude Desktop by adding the MCP server configuration:
+4. Configure your MCP client (e.g. Claude Desktop):
    ```json
    {
      "mcpServers": {
        "gmail": {
-         "command": "npx",
-         "args": [
-           "@gongrzhe/server-gmail-autoauth-mcp"
-         ]
+         "command": "bun",
+         "args": ["/absolute/path/to/Gmail-MCP-Server/dist/index.js"]
        }
      }
    }
    ```
 
 ## Troubleshooting
-
-If you encounter any issues during installation:
 
 1. OAuth Keys Issues:
    - Verify gcp-oauth.keys.json exists in correct location
@@ -72,7 +73,7 @@ If you encounter any issues during installation:
 3. Configuration Issues:
    - Verify ~/.gmail-mcp directory exists and has correct permissions
    - Check credentials.json was created after authentication
-   - Ensure Claude Desktop configuration is properly formatted
+   - Ensure MCP client configuration is properly formatted
 
 ## Security Notes
 
@@ -80,7 +81,6 @@ If you encounter any issues during installation:
 - Never commit credentials to version control
 - Use proper file permissions for config directory
 - Regularly review access in Google Account settings
-- Credentials are only accessible by current user
 
 ## Usage Examples
 
@@ -106,10 +106,10 @@ After installation, you can perform various Gmail operations:
 ```
 
 ### Manage Email
-- Read emails by ID
+- Read emails by ID (returns HTML content when available)
 - Move emails between labels
 - Mark emails as read/unread
 - Delete emails
 - List emails in different folders
 
-For more details or support, please check the GitHub repository or file an issue.
+For more details, see the [README](README.md) or file an issue on the GitHub repository.

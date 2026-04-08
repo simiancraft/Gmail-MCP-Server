@@ -1,5 +1,5 @@
 {
-  "name": "@gongrzhe/server-gmail-autoauth-mcp",
+  "name": "gmail-mcp-server",
   "version": "1.1.11",
   "description": "Gmail MCP server with auto authentication support",
   "type": "module",
@@ -9,10 +9,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "auth": "node dist/index.js auth",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run build",
+    "start": "bun dist/index.js",
+    "auth": "bun dist/index.js auth",
+    "prepare": "bun run build",
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
     "format": "biome format --write src/"
@@ -42,15 +41,12 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gongrzhe/server-gmail-autoauth-mcp.git"
+    "url": "git+https://github.com/simiancraft/Gmail-MCP-Server.git"
   },
   "bugs": {
-    "url": "https://github.com/gongrzhe/server-gmail-autoauth-mcp/issues"
+    "url": "https://github.com/simiancraft/Gmail-MCP-Server/issues"
   },
-  "homepage": "https://github.com/gongrzhe/server-gmail-autoauth-mcp#readme",
-  "publishConfig": {
-    "access": "public"
-  },
+  "homepage": "https://github.com/simiancraft/Gmail-MCP-Server#readme",
   "engines": {
     "node": ">=14.0.0"
   },
