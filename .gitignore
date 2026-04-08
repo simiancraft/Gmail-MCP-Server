@@ -25,9 +25,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Credentials
 gcp-oauth.keys.json
-.calendar-mcp/
-credentials.json
-.calendar-server-credentials.json 
 .gcp-oauth.keys.json
+credentials.json
