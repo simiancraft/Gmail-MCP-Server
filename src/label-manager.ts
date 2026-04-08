@@ -208,17 +208,18 @@ export async function getOrCreateLabel(
         messageListVisibility?: string;
         labelListVisibility?: string;
     } = {},
-) {
+): Promise<{ label: GmailLabel; created: boolean }> {
     try {
         // First try to find an existing label
         const existingLabel = await findLabelByName(gmail, labelName);
 
         if (existingLabel) {
-            return existingLabel;
+            return { label: existingLabel, created: false };
         }
 
         // If not found, create a new one
-        return await createLabel(gmail, labelName, options);
+        const newLabel = await createLabel(gmail, labelName, options);
+        return { label: newLabel, created: true };
     } catch (error: any) {
         throw new Error(`Failed to get or create label: ${error.message}`);
     }

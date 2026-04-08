@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import http from "node:http";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,6 +56,8 @@ import {
 import { createEmailMessage, createEmailWithNodemailer } from "./utl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _require = createRequire(import.meta.url);
+const { version: SERVER_VERSION } = _require("../package.json");
 
 // Configuration paths
 const CONFIG_DIR = path.join(os.homedir(), ".gmail-mcp");
@@ -136,17 +139,12 @@ function extractEmailContent(messagePart: GmailMessagePart): EmailContent {
 async function loadCredentials() {
     try {
         // Create config directory if it doesn't exist
-        if (
-            !process.env.GMAIL_OAUTH_PATH &&
-            !CREDENTIALS_PATH &&
-            !fs.existsSync(CONFIG_DIR)
-        ) {
+        if (!fs.existsSync(CONFIG_DIR)) {
             fs.mkdirSync(CONFIG_DIR, { recursive: true });
         }
 
         // Check for OAuth keys in current directory first, then in config directory
         const localOAuthPath = path.join(process.cwd(), "gcp-oauth.keys.json");
-        const _oauthPath = OAUTH_PATH;
 
         if (fs.existsSync(localOAuthPath)) {
             // If found in current directory, copy to config directory
@@ -262,7 +260,7 @@ async function main() {
     // Server implementation
     const server = new Server({
         name: "gmail",
-        version: "1.0.0",
+        version: SERVER_VERSION,
         capabilities: {
             tools: {},
         },
@@ -587,10 +585,7 @@ async function main() {
 
                     // Collect attachment metadata
                     const attachments: EmailAttachment[] = [];
-                    const processAttachmentParts = (
-                        part: GmailMessagePart,
-                        path: string = "",
-                    ) => {
+                    const processAttachmentParts = (part: GmailMessagePart) => {
                         if (part.body?.attachmentId) {
                             const filename =
                                 part.filename ||
@@ -606,10 +601,7 @@ async function main() {
 
                         if (part.parts) {
                             for (const subpart of part.parts) {
-                                processAttachmentParts(
-                                    subpart,
-                                    `${path}/parts`,
-                                );
+                                processAttachmentParts(subpart);
                             }
                         }
                     };
@@ -696,12 +688,10 @@ async function main() {
                     // Prepare request body
                     const requestBody: any = {};
 
-                    if (validatedArgs.labelIds) {
-                        requestBody.addLabelIds = validatedArgs.labelIds;
-                    }
-
                     if (validatedArgs.addLabelIds) {
                         requestBody.addLabelIds = validatedArgs.addLabelIds;
+                    } else if (validatedArgs.labelIds) {
+                        requestBody.addLabelIds = validatedArgs.labelIds;
                     }
 
                     if (validatedArgs.removeLabelIds) {
@@ -957,7 +947,7 @@ async function main() {
 
                 case "get_or_create_label": {
                     const validatedArgs = GetOrCreateLabelSchema.parse(args);
-                    const result = await getOrCreateLabel(
+                    const { label, created } = await getOrCreateLabel(
                         gmail,
                         validatedArgs.name,
                         {
@@ -968,17 +958,13 @@ async function main() {
                         },
                     );
 
-                    const action =
-                        result.type === "user" &&
-                        result.name === validatedArgs.name
-                            ? "found existing"
-                            : "created new";
+                    const action = created ? "created new" : "found existing";
 
                     return {
                         content: [
                             {
                                 type: "text",
-                                text: `Successfully ${action} label:\nID: ${result.id}\nName: ${result.name}\nType: ${result.type}`,
+                                text: `Successfully ${action} label:\nID: ${label.id}\nName: ${label.name}\nType: ${label.type}`,
                             },
                         ],
                     };
