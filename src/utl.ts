@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import nodemailer from "nodemailer";
+import type { SendEmailArgs } from "./schemas.js";
 
 /**
  * Helper function to encode email headers containing non-ASCII characters
@@ -21,7 +22,7 @@ export const validateEmail = (email: string): boolean => {
     return emailRegex.test(email);
 };
 
-export function createEmailMessage(validatedArgs: any): string {
+export function createEmailMessage(validatedArgs: SendEmailArgs): string {
     const encodedSubject = encodeEmailHeader(validatedArgs.subject);
     // Determine content type based on available content and explicit mimeType
     let mimeType = validatedArgs.mimeType || "text/plain";
@@ -101,7 +102,7 @@ export function createEmailMessage(validatedArgs: any): string {
 }
 
 export async function createEmailWithNodemailer(
-    validatedArgs: any,
+    validatedArgs: SendEmailArgs,
 ): Promise<string> {
     // Validate email addresses
     (validatedArgs.to as string[]).forEach((email) => {
@@ -119,7 +120,7 @@ export async function createEmailWithNodemailer(
 
     // Prepare attachments for nodemailer
     const attachments = [];
-    for (const filePath of validatedArgs.attachments) {
+    for (const filePath of validatedArgs.attachments ?? []) {
         if (!fs.existsSync(filePath)) {
             throw new Error(`File does not exist: ${filePath}`);
         }
