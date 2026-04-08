@@ -13,7 +13,7 @@ export interface GmailFilterCriteria {
     hasAttachment?: boolean;
     excludeChats?: boolean;
     size?: number;
-    sizeComparison?: 'unspecified' | 'smaller' | 'larger';
+    sizeComparison?: "unspecified" | "smaller" | "larger";
 }
 
 export interface GmailFilterAction {
@@ -35,22 +35,28 @@ export interface GmailFilter {
  * @param action - Actions to perform on matching messages
  * @returns The newly created filter
  */
-export async function createFilter(gmail: any, criteria: GmailFilterCriteria, action: GmailFilterAction) {
+export async function createFilter(
+    gmail: any,
+    criteria: GmailFilterCriteria,
+    action: GmailFilterAction,
+) {
     try {
         const filterBody: GmailFilter = {
             criteria,
-            action
+            action,
         };
 
         const response = await gmail.users.settings.filters.create({
-            userId: 'me',
+            userId: "me",
             requestBody: filterBody,
         });
 
         return response.data;
     } catch (error: any) {
         if (error.code === 400) {
-            throw new Error(`Invalid filter criteria or action: ${error.message}`);
+            throw new Error(
+                `Invalid filter criteria or action: ${error.message}`,
+            );
         }
         throw new Error(`Failed to create filter: ${error.message}`);
     }
@@ -64,14 +70,14 @@ export async function createFilter(gmail: any, criteria: GmailFilterCriteria, ac
 export async function listFilters(gmail: any) {
     try {
         const response = await gmail.users.settings.filters.list({
-            userId: 'me',
+            userId: "me",
         });
 
         const filters = response.data.filters || [];
-        
+
         return {
             filters,
-            count: filters.length
+            count: filters.length,
         };
     } catch (error: any) {
         throw new Error(`Failed to list filters: ${error.message}`);
@@ -87,7 +93,7 @@ export async function listFilters(gmail: any) {
 export async function getFilter(gmail: any, filterId: string) {
     try {
         const response = await gmail.users.settings.filters.get({
-            userId: 'me',
+            userId: "me",
             id: filterId,
         });
 
@@ -109,11 +115,14 @@ export async function getFilter(gmail: any, filterId: string) {
 export async function deleteFilter(gmail: any, filterId: string) {
     try {
         await gmail.users.settings.filters.delete({
-            userId: 'me',
+            userId: "me",
             id: filterId,
         });
 
-        return { success: true, message: `Filter "${filterId}" deleted successfully.` };
+        return {
+            success: true,
+            message: `Filter "${filterId}" deleted successfully.`,
+        };
     } catch (error: any) {
         if (error.code === 404) {
             throw new Error(`Filter with ID "${filterId}" not found.`);
@@ -129,59 +138,82 @@ export const filterTemplates = {
     /**
      * Filter emails from a specific sender
      */
-    fromSender: (senderEmail: string, labelIds: string[] = [], archive: boolean = false): { criteria: GmailFilterCriteria, action: GmailFilterAction } => ({
+    fromSender: (
+        senderEmail: string,
+        labelIds: string[] = [],
+        archive: boolean = false,
+    ): { criteria: GmailFilterCriteria; action: GmailFilterAction } => ({
         criteria: { from: senderEmail },
         action: {
             addLabelIds: labelIds,
-            removeLabelIds: archive ? ['INBOX'] : undefined
-        }
+            removeLabelIds: archive ? ["INBOX"] : undefined,
+        },
     }),
 
     /**
      * Filter emails with specific subject
      */
-    withSubject: (subjectText: string, labelIds: string[] = [], markAsRead: boolean = false): { criteria: GmailFilterCriteria, action: GmailFilterAction } => ({
+    withSubject: (
+        subjectText: string,
+        labelIds: string[] = [],
+        markAsRead: boolean = false,
+    ): { criteria: GmailFilterCriteria; action: GmailFilterAction } => ({
         criteria: { subject: subjectText },
         action: {
             addLabelIds: labelIds,
-            removeLabelIds: markAsRead ? ['UNREAD'] : undefined
-        }
+            removeLabelIds: markAsRead ? ["UNREAD"] : undefined,
+        },
     }),
 
     /**
      * Filter emails with attachments
      */
-    withAttachments: (labelIds: string[] = []): { criteria: GmailFilterCriteria, action: GmailFilterAction } => ({
+    withAttachments: (
+        labelIds: string[] = [],
+    ): { criteria: GmailFilterCriteria; action: GmailFilterAction } => ({
         criteria: { hasAttachment: true },
-        action: { addLabelIds: labelIds }
+        action: { addLabelIds: labelIds },
     }),
 
     /**
      * Filter large emails
      */
-    largeEmails: (sizeInBytes: number, labelIds: string[] = []): { criteria: GmailFilterCriteria, action: GmailFilterAction } => ({
-        criteria: { size: sizeInBytes, sizeComparison: 'larger' },
-        action: { addLabelIds: labelIds }
+    largeEmails: (
+        sizeInBytes: number,
+        labelIds: string[] = [],
+    ): { criteria: GmailFilterCriteria; action: GmailFilterAction } => ({
+        criteria: { size: sizeInBytes, sizeComparison: "larger" },
+        action: { addLabelIds: labelIds },
     }),
 
     /**
      * Filter emails containing specific text
      */
-    containingText: (searchText: string, labelIds: string[] = [], markImportant: boolean = false): { criteria: GmailFilterCriteria, action: GmailFilterAction } => ({
+    containingText: (
+        searchText: string,
+        labelIds: string[] = [],
+        markImportant: boolean = false,
+    ): { criteria: GmailFilterCriteria; action: GmailFilterAction } => ({
         criteria: { query: `"${searchText}"` },
         action: {
-            addLabelIds: markImportant ? [...labelIds, 'IMPORTANT'] : labelIds
-        }
+            addLabelIds: markImportant ? [...labelIds, "IMPORTANT"] : labelIds,
+        },
     }),
 
     /**
      * Filter mailing list emails (common patterns)
      */
-    mailingList: (listIdentifier: string, labelIds: string[] = [], archive: boolean = true): { criteria: GmailFilterCriteria, action: GmailFilterAction } => ({
-        criteria: { query: `list:${listIdentifier} OR subject:[${listIdentifier}]` },
+    mailingList: (
+        listIdentifier: string,
+        labelIds: string[] = [],
+        archive: boolean = true,
+    ): { criteria: GmailFilterCriteria; action: GmailFilterAction } => ({
+        criteria: {
+            query: `list:${listIdentifier} OR subject:[${listIdentifier}]`,
+        },
         action: {
             addLabelIds: labelIds,
-            removeLabelIds: archive ? ['INBOX'] : undefined
-        }
-    })
-}; 
+            removeLabelIds: archive ? ["INBOX"] : undefined,
+        },
+    }),
+};
