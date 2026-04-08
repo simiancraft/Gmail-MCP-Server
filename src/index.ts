@@ -1271,13 +1271,25 @@ async function main() {
                                 `attachment-${validatedArgs.attachmentId}`;
                         }
 
+                        // Sanitize filename to prevent path traversal
+                        filename = path.basename(filename);
+
                         // Ensure save directory exists
                         if (!fs.existsSync(savePath)) {
                             fs.mkdirSync(savePath, { recursive: true });
                         }
 
-                        // Write file
-                        const fullPath = path.join(savePath, filename);
+                        // Write file, verifying path stays within savePath
+                        const fullPath = path.resolve(savePath, filename);
+                        const resolvedSavePath = path.resolve(savePath);
+                        if (
+                            !fullPath.startsWith(resolvedSavePath + path.sep) &&
+                            fullPath !== resolvedSavePath
+                        ) {
+                            throw new Error(
+                                "Invalid filename: resolved path escapes the save directory",
+                            );
+                        }
                         fs.writeFileSync(fullPath, buffer);
 
                         return {
