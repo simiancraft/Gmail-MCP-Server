@@ -863,11 +863,7 @@ async function main() {
                         (response.data.payload as GmailMessagePart) || {},
                     );
 
-                    // Prefer HTML content (receipts and most vendor emails are HTML-only for structured data)
-                    // Fall back to plain text only if no HTML available
-                    const body = html || text || "";
-
-                    // Get attachment information
+                    // Collect attachment metadata
                     const attachments: EmailAttachment[] = [];
                     const processAttachmentParts = (
                         part: GmailMessagePart,
@@ -902,23 +898,27 @@ async function main() {
                         );
                     }
 
-                    // Add attachment info to output if any are present
-                    const attachmentInfo =
-                        attachments.length > 0
-                            ? `\n\nAttachments (${attachments.length}):\n` +
-                              attachments
-                                  .map(
-                                      (a) =>
-                                          `- ${a.filename} (${a.mimeType}, ${Math.round(a.size / 1024)} KB, ID: ${a.id})`,
-                                  )
-                                  .join("\n")
-                            : "";
-
                     return {
                         content: [
                             {
                                 type: "text",
-                                text: `Thread ID: ${threadId}\nSubject: ${subject}\nFrom: ${from}\nTo: ${to}\nDate: ${date}\n\n${body}${attachmentInfo}`,
+                                text: JSON.stringify(
+                                    {
+                                        messageId: validatedArgs.messageId,
+                                        threadId,
+                                        subject,
+                                        from,
+                                        to,
+                                        date,
+                                        body: {
+                                            text: text || null,
+                                            html: html || null,
+                                        },
+                                        attachments,
+                                    },
+                                    null,
+                                    2,
+                                ),
                             },
                         ],
                     };
@@ -961,12 +961,7 @@ async function main() {
                         content: [
                             {
                                 type: "text",
-                                text: results
-                                    .map(
-                                        (r) =>
-                                            `ID: ${r.id}\nSubject: ${r.subject}\nFrom: ${r.from}\nDate: ${r.date}\n`,
-                                    )
-                                    .join("\n"),
+                                text: JSON.stringify(results, null, 2),
                             },
                         ],
                     };

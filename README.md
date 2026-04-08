@@ -187,19 +187,31 @@ Retrieves the content of a specific email by its ID. Shows enhanced attachment i
 }
 ```
 
-Response includes attachment details:
+Response is structured JSON with both text and HTML body:
+```json
+{
+  "messageId": "182ab45cd67ef",
+  "threadId": "182ab45cd67ef",
+  "subject": "Project Files",
+  "from": "sender@example.com",
+  "to": "recipient@example.com",
+  "date": "Thu, 19 Jun 2025 10:30:00 -0400",
+  "body": {
+    "text": "Plain text version of the email...",
+    "html": "<html>Rich HTML version...</html>"
+  },
+  "attachments": [
+    {
+      "id": "ANGjdJ9fkTs...",
+      "filename": "document.pdf",
+      "mimeType": "application/pdf",
+      "size": 250880
+    }
+  ]
+}
 ```
-Subject: Project Files
-From: sender@example.com
-To: recipient@example.com
-Date: Thu, 19 Jun 2025 10:30:00 -0400
 
-<html>Email body content here...</html>
-
-Attachments (2):
-- document.pdf (application/pdf, 245 KB, ID: ANGjdJ9fkTs...)
-- spreadsheet.xlsx (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, 89 KB, ID: BWHkeL8gkUt...)
-```
+The `body.text` and `body.html` fields are `null` when that content type is not present in the email. Most transactional/vendor emails only have HTML; some plain-text-only senders will only have `text`.
 
 ### 4. Download Attachment (`download_attachment`)
 Downloads email attachments to your local filesystem.
