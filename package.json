@@ -55,7 +55,6 @@
     "@types/mime-types": "^2.1.4",
     "google-auth-library": "^9.4.1",
     "googleapis": "^129.0.0",
-    "mcp-evals": "^1.0.18",
     "mime-types": "^3.0.1",
     "nodemailer": "^7.0.3",
     "open": "^10.0.0",

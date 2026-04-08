@@ -446,13 +446,16 @@ bun run lint:fix     # auto-fix lint issues
 bun run format       # format source files
 ```
 
-## Running Evals
+### Commit style
 
-```bash
-OPENAI_API_KEY=your-key npx mcp-eval src/evals/evals.ts src/index.ts
-```
+This project uses [conventional commits](https://www.conventionalcommits.org/) and [semantic-release](https://github.com/semantic-release/semantic-release). Pushing to `main` with the right prefix automatically bumps the version and creates a GitHub Release.
 
-See [mcp-evals docs](https://www.mcpevals.io/docs) for details.
+| Prefix | Bump | Example |
+|---|---|---|
+| `fix:` | patch | `fix: handle missing attachment header` |
+| `feat:` | minor | `feat: add batch label operations` |
+| `feat!:` or `BREAKING CHANGE:` | major | `feat!: change auth flow` |
+| `chore:`, `docs:`, `ci:` | no release | `chore: update biome config` |
 
 ## License
 
