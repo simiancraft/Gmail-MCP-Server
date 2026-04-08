@@ -863,15 +863,9 @@ async function main() {
                         (response.data.payload as GmailMessagePart) || {},
                     );
 
-                    // Use plain text content if available, otherwise use HTML content
-                    // (optionally, you could implement HTML-to-text conversion here)
-                    const body = text || html || "";
-
-                    // If we only have HTML content, add a note for the user
-                    const contentTypeNote =
-                        !text && html
-                            ? "[Note: This email is HTML-formatted. Plain text version not available.]\n\n"
-                            : "";
+                    // Prefer HTML content (receipts and most vendor emails are HTML-only for structured data)
+                    // Fall back to plain text only if no HTML available
+                    const body = html || text || "";
 
                     // Get attachment information
                     const attachments: EmailAttachment[] = [];
@@ -924,7 +918,7 @@ async function main() {
                         content: [
                             {
                                 type: "text",
-                                text: `Thread ID: ${threadId}\nSubject: ${subject}\nFrom: ${from}\nTo: ${to}\nDate: ${date}\n\n${contentTypeNote}${body}${attachmentInfo}`,
+                                text: `Thread ID: ${threadId}\nSubject: ${subject}\nFrom: ${from}\nTo: ${to}\nDate: ${date}\n\n${body}${attachmentInfo}`,
                             },
                         ],
                     };
