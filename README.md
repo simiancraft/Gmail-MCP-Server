@@ -1,35 +1,23 @@
 # Gmail MCP Server
 
-A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Gmail integration with auto authentication support. This server enables AI assistants to manage Gmail through natural language interactions.
+A [Model Context Protocol](https://modelcontextprotocol.io/) server for Gmail. Lets AI assistants read, send, search, label, and filter Gmail through natural language, with OAuth2 auto-authentication and full attachment support.
 
-> **Fork notice:** This is a fork of [gongrzhe/server-gmail-autoauth-mcp](https://github.com/gongrzhe/server-gmail-autoauth-mcp) with independent development. It is **not** published to npm or Smithery under the original package name. Install from this repository directly.
+Built with TypeScript, [Bun](https://bun.sh/), and the [`googleapis`](https://github.com/googleapis/google-api-nodejs-client) client.
 
-## Features
+## Highlights
 
-- Send emails with subject, content, **attachments**, and recipients
-- **Full attachment support** - send and receive file attachments
-- **Download email attachments** to local filesystem
-- Support for HTML emails and multipart messages with both HTML and plain text versions
-- Full support for international characters in subject lines and email content
-- Read email messages by ID with advanced MIME structure handling
-- **HTML-first email reading** - returns HTML content when available for rich formatting
-- **Enhanced attachment display** showing filenames, types, sizes, and download IDs
-- Search emails with various criteria (subject, sender, date range)
-- **Comprehensive label management** - create, update, delete, and list labels
-- List all available Gmail labels (system and user-defined)
-- List emails in inbox, sent, or custom labels
-- Mark emails as read/unread
-- Move emails to different labels/folders
-- Delete emails
-- **Batch operations for efficiently processing multiple emails at once**
-- **Filter management** - create, list, get, and delete Gmail filters
-- **Filter templates** for common scenarios (sender, subject, attachments, etc.)
-- Full integration with Gmail API
-- Simple OAuth2 authentication flow with auto browser launch
-- Support for both Desktop and Web application credentials
-- Global credential storage for convenience
+- **Structured JSON responses.** `read_email` and `search_emails` return parseable JSON objects, not pre-formatted text. Easier for downstream tools to consume without fragile string parsing. (See [Structured responses](#structured-responses) below.)
+- **Full attachment support.** Send files, read attachment metadata, and download attachments to disk. Path traversal is blocked at the download boundary.
+- **HTML-first email reading.** When a message has both plain text and HTML parts, both are returned so the client can pick.
+- **Comprehensive label management.** Create, update, delete, list, and get-or-create labels. System labels are protected from deletion.
+- **Gmail filter management.** Full CRUD on filters plus six templates (`fromSender`, `withSubject`, `withAttachments`, `largeEmails`, `containingText`, `mailingList`).
+- **Batch operations.** Modify or delete many messages in one call, with graceful per-item fallback if a batch fails.
+- **RFC 2047 subject encoding** for international characters.
+- **Typed input validation** via Zod schemas on every tool.
+- **Error responses set `isError: true`** so MCP clients can distinguish failures from successes.
+- **Automated releases** via semantic-release on every push to `main`.
 
-## Installation & Authentication
+## Installation
 
 ### 1. Clone and build
 
@@ -40,47 +28,34 @@ bun install
 bun run build
 ```
 
-### 2. Create a Google Cloud Project and obtain credentials
+### 2. Create Google Cloud OAuth credentials
 
-a. Create a Google Cloud Project:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select an existing one
-   - Enable the Gmail API for your project
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create (or select) a project.
+2. Enable the **Gmail API** for the project.
+3. Under **APIs & Services → Credentials**, click **Create Credentials → OAuth client ID**.
+4. Choose **Desktop app** or **Web application**. For Web application, add `http://localhost:3000/oauth2callback` to the authorized redirect URIs.
+5. Download the JSON, rename it to `gcp-oauth.keys.json`.
 
-b. Create OAuth 2.0 Credentials:
-   - Go to "APIs & Services" > "Credentials"
-   - Click "Create Credentials" > "OAuth client ID"
-   - Choose either "Desktop app" or "Web application" as application type
-   - Give it a name and click "Create"
-   - For Web application, add `http://localhost:3000/oauth2callback` to the authorized redirect URIs
-   - Download the JSON file of your client's OAuth keys
-   - Rename the key file to `gcp-oauth.keys.json`
-
-### 3. Run Authentication
+### 3. Authenticate
 
 ```bash
-# Place gcp-oauth.keys.json in the global config directory
 mkdir -p ~/.gmail-mcp
 mv gcp-oauth.keys.json ~/.gmail-mcp/
-
-# Run authentication
 bun dist/index.js auth
 ```
 
-The authentication process will:
-- Look for `gcp-oauth.keys.json` in the current directory or `~/.gmail-mcp/`
-- If found in current directory, copy it to `~/.gmail-mcp/`
-- Open your default browser for Google authentication
-- Save credentials as `~/.gmail-mcp/credentials.json`
+The auth command:
+- Looks for `gcp-oauth.keys.json` in the current directory or `~/.gmail-mcp/`.
+- Opens your browser to the Google consent screen.
+- Saves the resulting token to `~/.gmail-mcp/credentials.json`.
 
-> **Note:**
-> - After successful authentication, credentials are stored globally in `~/.gmail-mcp/` and can be used from any directory
-> - Both Desktop app and Web application credentials are supported
-> - For Web application credentials, make sure to add `http://localhost:3000/oauth2callback` to your authorized redirect URIs
+Credentials can be overridden with environment variables:
+- `GMAIL_OAUTH_PATH` — path to the client keys JSON
+- `GMAIL_CREDENTIALS_PATH` — path to the stored user token JSON
 
-### 4. Configure your MCP client
+### 4. Wire it into your MCP client
 
-Point your MCP client at the built server. For example, in Claude Desktop:
+Example for Claude Desktop:
 
 ```json
 {
@@ -93,7 +68,7 @@ Point your MCP client at the built server. For example, in Claude Desktop:
 }
 ```
 
-Or if you use environment variables for credential paths:
+With custom credential paths:
 
 ```json
 {
@@ -110,84 +85,12 @@ Or if you use environment variables for credential paths:
 }
 ```
 
-## Available Tools
+## Structured responses
 
-The server provides the following tools:
+This is the most important behavioral difference worth calling out: **`read_email` and `search_emails` return structured JSON** rather than pre-formatted text blobs. The JSON is embedded in the MCP `content[0].text` field, so clients can `JSON.parse` it directly.
 
-### 1. Send Email (`send_email`)
+### `read_email` response
 
-Sends a new email immediately. Supports plain text, HTML, or multipart emails with optional file attachments.
-
-Basic Email:
-```json
-{
-  "to": ["recipient@example.com"],
-  "subject": "Meeting Tomorrow",
-  "body": "Hi,\n\nJust a reminder about our meeting tomorrow at 10 AM.\n\nBest regards",
-  "cc": ["cc@example.com"],
-  "bcc": ["bcc@example.com"],
-  "mimeType": "text/plain"
-}
-```
-
-Email with Attachments:
-```json
-{
-  "to": ["recipient@example.com"],
-  "subject": "Project Files",
-  "body": "Hi,\n\nPlease find the project files attached.\n\nBest regards",
-  "attachments": [
-    "/path/to/document.pdf",
-    "/path/to/spreadsheet.xlsx",
-    "/path/to/presentation.pptx"
-  ]
-}
-```
-
-HTML Email:
-```json
-{
-  "to": ["recipient@example.com"],
-  "subject": "Meeting Tomorrow",
-  "mimeType": "text/html",
-  "body": "<html><body><h1>Meeting Reminder</h1><p>Just a reminder about our <b>meeting tomorrow</b> at 10 AM.</p></body></html>"
-}
-```
-
-Multipart Email (HTML + Plain Text):
-```json
-{
-  "to": ["recipient@example.com"],
-  "subject": "Meeting Tomorrow",
-  "mimeType": "multipart/alternative",
-  "body": "Hi,\n\nJust a reminder about our meeting tomorrow at 10 AM.\n\nBest regards",
-  "htmlBody": "<html><body><h1>Meeting Reminder</h1><p>Just a reminder about our <b>meeting tomorrow</b> at 10 AM.</p></body></html>"
-}
-```
-
-### 2. Draft Email (`draft_email`)
-Creates a draft email without sending it. Also supports attachments.
-
-```json
-{
-  "to": ["recipient@example.com"],
-  "subject": "Draft Report",
-  "body": "Here's the draft report for your review.",
-  "cc": ["manager@example.com"],
-  "attachments": ["/path/to/draft_report.docx"]
-}
-```
-
-### 3. Read Email (`read_email`)
-Retrieves the content of a specific email by its ID. Shows enhanced attachment information.
-
-```json
-{
-  "messageId": "182ab45cd67ef"
-}
-```
-
-Response is structured JSON with both text and HTML body:
 ```json
 {
   "messageId": "182ab45cd67ef",
@@ -211,28 +114,61 @@ Response is structured JSON with both text and HTML body:
 }
 ```
 
-The `body.text` and `body.html` fields are `null` when that content type is not present in the email. Most transactional/vendor emails only have HTML; some plain-text-only senders will only have `text`.
+`body.text` and `body.html` are independently `null` when the message does not contain that part. Most transactional/vendor email is HTML-only; some plain-text-only senders only populate `text`.
 
-### 4. Download Attachment (`download_attachment`)
-Downloads email attachments to your local filesystem.
+### `search_emails` response
+
+```json
+[
+  {
+    "id": "182ab45cd67ef",
+    "subject": "Project Files",
+    "from": "sender@example.com",
+    "date": "Thu, 19 Jun 2025 10:30:00 -0400"
+  }
+]
+```
+
+All other tools return human-readable status text in `content[0].text` (e.g. `"Email sent successfully with ID: ..."`).
+
+## Tool reference
+
+All 19 tools accept validated JSON input. Required fields are called out explicitly; everything else is optional.
+
+### Email
+
+#### `send_email`
+Sends a new email. Supports plain text, HTML, multipart, attachments, and threading.
 
 ```json
 {
-  "messageId": "182ab45cd67ef",
-  "attachmentId": "ANGjdJ9fkTs-i3GCQo5o97f_itG...",
-  "savePath": "/path/to/downloads",
-  "filename": "downloaded_document.pdf"
+  "to": ["recipient@example.com"],
+  "subject": "Meeting Tomorrow",
+  "body": "Hi, reminder about our meeting.",
+  "mimeType": "text/plain",
+  "cc": ["cc@example.com"],
+  "bcc": ["bcc@example.com"],
+  "attachments": ["/path/to/file.pdf"],
+  "threadId": "182ab45cd67ef",
+  "inReplyTo": "<message-id@example.com>"
 }
 ```
 
-Parameters:
-- `messageId`: The ID of the email containing the attachment
-- `attachmentId`: The attachment ID (shown in enhanced email display)
-- `savePath`: Directory to save the file (optional, defaults to current directory)
-- `filename`: Custom filename (optional, uses original filename if not provided)
+- `mimeType` defaults to `text/plain`. Use `text/html` for HTML-only, or `multipart/alternative` with both `body` and `htmlBody` for clients that can render either.
+- Attachments are validated for existence before send.
 
-### 5. Search Emails (`search_emails`)
-Searches for emails using Gmail search syntax.
+#### `draft_email`
+Same input as `send_email` but creates a draft instead of sending.
+
+#### `read_email`
+Retrieves full content of a message. See [Structured responses](#structured-responses).
+
+```json
+{ "messageId": "182ab45cd67ef" }
+```
+
+#### `search_emails`
+Searches using [Gmail search syntax](#gmail-search-syntax). Returns an array of metadata (see [Structured responses](#structured-responses)).
 
 ```json
 {
@@ -241,8 +177,8 @@ Searches for emails using Gmail search syntax.
 }
 ```
 
-### 6. Modify Email (`modify_email`)
-Adds or removes labels from emails (move to different folders, archive, etc.).
+#### `modify_email`
+Adds or removes labels on a single message. If both `addLabelIds` and `labelIds` are provided, `addLabelIds` takes precedence.
 
 ```json
 {
@@ -252,24 +188,61 @@ Adds or removes labels from emails (move to different folders, archive, etc.).
 }
 ```
 
-### 7. Delete Email (`delete_email`)
-Permanently deletes an email.
+#### `delete_email`
+Permanently deletes an email. Irreversible.
+
+```json
+{ "messageId": "182ab45cd67ef" }
+```
+
+#### `download_attachment`
+Downloads an attachment to disk. Filenames are sanitized (`path.basename`) and the resolved output path is verified to stay inside `savePath` to prevent traversal.
 
 ```json
 {
-  "messageId": "182ab45cd67ef"
+  "messageId": "182ab45cd67ef",
+  "attachmentId": "ANGjdJ9fkTs...",
+  "savePath": "/path/to/downloads",
+  "filename": "custom-name.pdf"
 }
 ```
 
-### 8. List Email Labels (`list_email_labels`)
-Retrieves all available Gmail labels.
+`savePath` defaults to the current working directory. `filename` defaults to the original filename from the message.
+
+### Batch
+
+#### `batch_modify_emails`
+Adds/removes labels on many messages at once. Falls back to per-item retry if a batch fails.
+
+```json
+{
+  "messageIds": ["id1", "id2", "id3"],
+  "addLabelIds": ["IMPORTANT"],
+  "removeLabelIds": ["INBOX"],
+  "batchSize": 50
+}
+```
+
+#### `batch_delete_emails`
+Permanently deletes many messages in batches.
+
+```json
+{
+  "messageIds": ["id1", "id2", "id3"],
+  "batchSize": 50
+}
+```
+
+### Labels
+
+#### `list_email_labels`
+Lists all labels, split into system and user groups.
 
 ```json
 {}
 ```
 
-### 9. Create Label (`create_label`)
-Creates a new Gmail label.
+#### `create_label`
 
 ```json
 {
@@ -279,29 +252,24 @@ Creates a new Gmail label.
 }
 ```
 
-### 10. Update Label (`update_label`)
-Updates an existing Gmail label.
+#### `update_label`
 
 ```json
 {
   "id": "Label_1234567890",
-  "name": "Urgent Projects",
-  "messageListVisibility": "show",
-  "labelListVisibility": "labelShow"
+  "name": "Urgent Projects"
 }
 ```
 
-### 11. Delete Label (`delete_label`)
-Deletes a Gmail label.
+#### `delete_label`
+Refuses to delete system labels.
 
 ```json
-{
-  "id": "Label_1234567890"
-}
+{ "id": "Label_1234567890" }
 ```
 
-### 12. Get or Create Label (`get_or_create_label`)
-Gets an existing label by name or creates it if it doesn't exist.
+#### `get_or_create_label`
+Idempotent. Returns the existing label if one with that name exists; otherwise creates it. The response tells you which happened.
 
 ```json
 {
@@ -311,30 +279,9 @@ Gets an existing label by name or creates it if it doesn't exist.
 }
 ```
 
-### 13. Batch Modify Emails (`batch_modify_emails`)
-Modifies labels for multiple emails in efficient batches.
+### Filters
 
-```json
-{
-  "messageIds": ["182ab45cd67ef", "182ab45cd67eg", "182ab45cd67eh"],
-  "addLabelIds": ["IMPORTANT"],
-  "removeLabelIds": ["INBOX"],
-  "batchSize": 50
-}
-```
-
-### 14. Batch Delete Emails (`batch_delete_emails`)
-Permanently deletes multiple emails in efficient batches.
-
-```json
-{
-  "messageIds": ["182ab45cd67ef", "182ab45cd67eg", "182ab45cd67eh"],
-  "batchSize": 50
-}
-```
-
-### 15. Create Filter (`create_filter`)
-Creates a new Gmail filter with custom criteria and actions.
+#### `create_filter`
 
 ```json
 {
@@ -349,33 +296,17 @@ Creates a new Gmail filter with custom criteria and actions.
 }
 ```
 
-### 16. List Filters (`list_filters`)
-Retrieves all Gmail filters.
+#### `list_filters`, `get_filter`, `delete_filter`
 
 ```json
 {}
 ```
-
-### 17. Get Filter (`get_filter`)
-Gets details of a specific Gmail filter.
-
 ```json
-{
-  "filterId": "ANe1Bmj1234567890"
-}
+{ "filterId": "ANe1Bmj..." }
 ```
 
-### 18. Delete Filter (`delete_filter`)
-Deletes a Gmail filter.
-
-```json
-{
-  "filterId": "ANe1Bmj1234567890"
-}
-```
-
-### 19. Create Filter from Template (`create_filter_from_template`)
-Creates a filter using pre-defined templates for common scenarios.
+#### `create_filter_from_template`
+Six templates: `fromSender`, `withSubject`, `withAttachments`, `largeEmails`, `containingText`, `mailingList`.
 
 ```json
 {
@@ -388,91 +319,67 @@ Creates a filter using pre-defined templates for common scenarios.
 }
 ```
 
-Available templates: `fromSender`, `withSubject`, `withAttachments`, `largeEmails`, `containingText`, `mailingList`.
+## Gmail search syntax
 
-## Advanced Search Syntax
-
-The `search_emails` tool supports Gmail's search operators:
+`search_emails` accepts any standard Gmail search operator:
 
 | Operator | Example | Description |
-|----------|---------|-------------|
+|---|---|---|
 | `from:` | `from:john@example.com` | Emails from a specific sender |
-| `to:` | `to:mary@example.com` | Emails sent to a specific recipient |
-| `subject:` | `subject:"meeting notes"` | Emails with specific text in the subject |
-| `has:attachment` | `has:attachment` | Emails with attachments |
-| `after:` | `after:2024/01/01` | Emails received after a date |
-| `before:` | `before:2024/02/01` | Emails received before a date |
-| `is:` | `is:unread` | Emails with a specific state |
-| `label:` | `label:work` | Emails with a specific label |
+| `to:` | `to:mary@example.com` | Emails to a specific recipient |
+| `subject:` | `subject:"meeting notes"` | Subject match |
+| `has:attachment` | `has:attachment` | Has attachments |
+| `after:` | `after:2024/01/01` | After a date |
+| `before:` | `before:2024/02/01` | Before a date |
+| `is:` | `is:unread` | Message state |
+| `label:` | `label:work` | Has a specific label |
 
-Combine operators: `from:john@example.com after:2024/01/01 has:attachment`
+Combine freely: `from:john@example.com after:2024/01/01 has:attachment`.
 
-## Email Content Extraction
+## Security
 
-The server extracts email content from complex MIME structures:
-
-- Prefers HTML content when available (most vendor and transactional emails are HTML-only)
-- Falls back to plain text if no HTML part exists
-- Handles multi-part MIME messages with nested parts
-- Extracts attachment metadata (filename, type, size, download ID)
-- Preserves original email headers (From, To, Subject, Date)
-
-## Security Notes
-
-- OAuth credentials are stored in `~/.gmail-mcp/`
-- The server uses offline access to maintain persistent authentication
-- Never share or commit your credentials to version control
-- Regularly review and revoke unused access in your Google Account settings
-- Attachment files are processed locally and never stored permanently by the server
-
-## Troubleshooting
-
-1. **OAuth Keys Not Found**
-   - Make sure `gcp-oauth.keys.json` is in either your current directory or `~/.gmail-mcp/`
-   - Check file permissions
-
-2. **Invalid Credentials Format**
-   - Ensure your OAuth keys file contains either `web` or `installed` credentials
-   - For web applications, verify the redirect URI is correctly configured
-
-3. **Port Already in Use**
-   - If port 3000 is already in use, free it before running authentication
-
-4. **Batch Operation Failures**
-   - They automatically retry individual items
-   - Check error messages for specific failures
-   - Reduce batch size if you encounter rate limiting
-
-5. **Attachment Issues**
-   - Verify attachment file paths are correct and accessible
-   - Check read/write permissions
-   - Gmail has a 25MB attachment size limit per email
+- OAuth credentials are stored locally in `~/.gmail-mcp/` (or the paths set in env vars). Never commit them.
+- Attachment downloads validate the resolved output path against `savePath` to block path traversal via crafted filenames.
+- The server requests `gmail.modify` and `gmail.settings.basic` scopes — enough to read/send/label/filter, but not to change account settings beyond filters.
+- Offline access is used so the token refreshes without re-consent. Revoke in your Google Account → Security → Third-party access if you want to kill it.
+- Error responses set `isError: true` so clients can distinguish failures from successes rather than pattern-matching on text.
 
 ## Development
 
 ```bash
 bun install          # install dependencies
-bun run build        # compile TypeScript
-bun run lint         # check with biome
-bun run lint:fix     # auto-fix lint issues
-bun run format       # format source files
+bun run build        # compile TypeScript to dist/
+bun test             # run the test suite (53 tests)
+bun run lint         # biome check
+bun run lint:fix     # biome auto-fix
+bun run format       # biome format
 ```
+
+Tests live alongside source as `src/*.test.ts` and use Bun's built-in test runner. Running `bun test` discovers them automatically — no extra config.
 
 ### Commit style
 
-This project uses [conventional commits](https://www.conventionalcommits.org/) and [semantic-release](https://github.com/semantic-release/semantic-release). Pushing to `main` with the right prefix automatically bumps the version and creates a GitHub Release.
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) and [semantic-release](https://github.com/semantic-release/semantic-release). Pushes to `main` with the right prefix automatically bump the version and publish a GitHub Release.
 
 | Prefix | Bump | Example |
 |---|---|---|
 | `fix:` | patch | `fix: handle missing attachment header` |
 | `feat:` | minor | `feat: add batch label operations` |
-| `feat!:` or `BREAKING CHANGE:` | major | `feat!: change auth flow` |
-| `chore:`, `docs:`, `ci:` | no release | `chore: update biome config` |
+| `feat!:` / `BREAKING CHANGE:` | major | `feat!: change auth flow` |
+| `chore:`, `docs:`, `ci:`, `refactor:`, `test:` | no release | `chore: update biome config` |
+
+## Troubleshooting
+
+1. **OAuth keys not found.** Make sure `gcp-oauth.keys.json` is in `~/.gmail-mcp/` (or in your current working directory at auth time).
+2. **Invalid credentials format.** The keys file must contain either a `web` or `installed` block. For web apps, verify `http://localhost:3000/oauth2callback` is in the authorized redirect URIs.
+3. **Port 3000 already in use.** Free it before running `bun dist/index.js auth` — the OAuth callback server listens there.
+4. **Batch operation failures.** Batches automatically retry per-item; check the returned failure list. If you're hitting rate limits, lower `batchSize`.
+5. **Attachment send fails.** Verify paths exist and are readable. Gmail's per-message attachment cap is 25 MB.
 
 ## License
 
-ISC
+MIT. See [LICENSE](LICENSE).
 
-## Upstream
+## History
 
-Forked from [gongrzhe/server-gmail-autoauth-mcp](https://github.com/gongrzhe/server-gmail-autoauth-mcp).
+This project started as a clone of [gongrzhe/server-gmail-autoauth-mcp](https://github.com/gongrzhe/server-gmail-autoauth-mcp) in 2025. It has since diverged substantially — rewritten build/runtime to Bun, added semantic-release, restructured source into separate schemas/label/filter modules, added a full test suite, changed `read_email` and `search_emails` to return structured JSON, and tightened security, error handling, and type safety. The LICENSE file preserves the original MIT copyright, per the license's requirements.

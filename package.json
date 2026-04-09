@@ -39,7 +39,7 @@
       "email": "harlinjesse@gmail.com"
     }
   ],
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/simiancraft/Gmail-MCP-Server.git"
