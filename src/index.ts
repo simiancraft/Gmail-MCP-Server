@@ -266,13 +266,17 @@ async function main() {
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
     // Server implementation
-    const server = new Server({
-        name: "gmail",
-        version: SERVER_VERSION,
-        capabilities: {
-            tools: {},
+    const server = new Server(
+        {
+            name: "gmail",
+            version: SERVER_VERSION,
         },
-    });
+        {
+            capabilities: {
+                tools: {},
+            },
+        },
+    );
 
     // Tool handlers
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -1279,7 +1283,7 @@ async function main() {
     });
 
     const transport = new StdioServerTransport();
-    server.connect(transport);
+    await server.connect(transport);
 }
 
 // Only run main when this file is the direct entry point (not imported by tests)
