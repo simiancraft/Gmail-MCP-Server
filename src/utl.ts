@@ -17,6 +17,24 @@ function encodeEmailHeader(text: string): string {
     return text;
 }
 
+/**
+ * Extracts a human-readable message from an unknown thrown value.
+ * Prefer this over `error.message` in `catch (error: unknown)` blocks.
+ */
+export function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+    if (
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message: unknown }).message === "string"
+    ) {
+        return (error as { message: string }).message;
+    }
+    return String(error);
+}
+
 export function encodeBase64Url(message: string): string {
     return Buffer.from(message)
         .toString("base64")

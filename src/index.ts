@@ -13,7 +13,7 @@ import {
     ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { OAuth2Client } from "google-auth-library";
-import { google } from "googleapis";
+import { type gmail_v1, google } from "googleapis";
 import open from "open";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import {
@@ -52,6 +52,7 @@ import {
     ModifyEmailSchema,
     ReadEmailSchema,
     SearchEmailsSchema,
+    type SendEmailArgs,
     SendEmailSchema,
     UpdateLabelSchema,
 } from "./schemas.js";
@@ -59,6 +60,7 @@ import {
     createEmailMessage,
     createEmailWithNodemailer,
     encodeBase64Url,
+    errorMessage,
 } from "./utl.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -74,22 +76,8 @@ const CREDENTIALS_PATH =
     process.env.GMAIL_CREDENTIALS_PATH ||
     path.join(CONFIG_DIR, "credentials.json");
 
-// Type definitions for Gmail API responses
-export interface GmailMessagePart {
-    partId?: string;
-    mimeType?: string;
-    filename?: string;
-    headers?: Array<{
-        name: string;
-        value: string;
-    }>;
-    body?: {
-        attachmentId?: string;
-        size?: number;
-        data?: string;
-    };
-    parts?: GmailMessagePart[];
-}
+// Type aliases for Gmail API responses
+export type GmailMessagePart = gmail_v1.Schema$MessagePart;
 
 interface EmailAttachment {
     id: string;
@@ -389,7 +377,7 @@ async function main() {
 
         async function handleEmailAction(
             action: "send" | "draft",
-            validatedArgs: any,
+            validatedArgs: SendEmailArgs,
         ) {
             let message: string;
 
@@ -500,15 +488,17 @@ async function main() {
                         };
                     }
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
                 // Log attachment-related errors for debugging
                 if (
                     validatedArgs.attachments &&
                     validatedArgs.attachments.length > 0
                 ) {
+                    const message =
+                        error instanceof Error ? error.message : String(error);
                     console.error(
                         `Failed to send email with ${validatedArgs.attachments.length} attachments:`,
-                        error.message,
+                        message,
                     );
                 }
                 throw error;
@@ -686,7 +676,8 @@ async function main() {
                     const validatedArgs = ModifyEmailSchema.parse(args);
 
                     // Prepare request body
-                    const requestBody: any = {};
+                    const requestBody: gmail_v1.Schema$ModifyMessageRequest =
+                        {};
 
                     if (validatedArgs.addLabelIds) {
                         requestBody.addLabelIds = validatedArgs.addLabelIds;
@@ -768,7 +759,8 @@ async function main() {
                     const batchSize = validatedArgs.batchSize || 50;
 
                     // Prepare request body
-                    const requestBody: any = {};
+                    const requestBody: gmail_v1.Schema$ModifyMessageRequest =
+                        {};
 
                     if (validatedArgs.addLabelIds) {
                         requestBody.addLabelIds = validatedArgs.addLabelIds;
@@ -786,12 +778,11 @@ async function main() {
                         async (batch) => {
                             const results = await Promise.all(
                                 batch.map(async (messageId) => {
-                                    const _result =
-                                        await gmail.users.messages.modify({
-                                            userId: "me",
-                                            id: messageId,
-                                            requestBody: requestBody,
-                                        });
+                                    await gmail.users.messages.modify({
+                                        userId: "me",
+                                        id: messageId,
+                                        requestBody: requestBody,
+                                    });
                                     return { messageId, success: true };
                                 }),
                             );
@@ -906,7 +897,11 @@ async function main() {
                     const validatedArgs = UpdateLabelSchema.parse(args);
 
                     // Prepare request body with only the fields that were provided
-                    const updates: any = {};
+                    const updates: {
+                        name?: string;
+                        messageListVisibility?: string;
+                        labelListVisibility?: string;
+                    } = {};
                     if (validatedArgs.name) updates.name = validatedArgs.name;
                     if (validatedArgs.messageListVisibility)
                         updates.messageListVisibility =
@@ -1010,7 +1005,7 @@ async function main() {
                     }
 
                     const filtersText = filters
-                        .map((filter: any) => {
+                        .map((filter) => {
                             const criteriaEntries = formatFilterCriteria(
                                 filter.criteria || {},
                             );
@@ -1198,12 +1193,12 @@ async function main() {
 
                             // Find the attachment part to get original filename
                             const findAttachment = (
-                                part: any,
+                                part: gmail_v1.Schema$MessagePart | undefined,
                             ): string | null => {
+                                if (!part) return null;
                                 if (
-                                    part.body &&
-                                    part.body.attachmentId ===
-                                        validatedArgs.attachmentId
+                                    part.body?.attachmentId ===
+                                    validatedArgs.attachmentId
                                 ) {
                                     return (
                                         part.filename ||
@@ -1220,8 +1215,9 @@ async function main() {
                             };
 
                             filename =
-                                findAttachment(messageResponse.data.payload) ||
-                                `attachment-${validatedArgs.attachmentId}`;
+                                findAttachment(
+                                    messageResponse.data.payload ?? undefined,
+                                ) || `attachment-${validatedArgs.attachmentId}`;
                         }
 
                         // Sanitize filename to prevent path traversal
@@ -1253,12 +1249,12 @@ async function main() {
                                 },
                             ],
                         };
-                    } catch (error: any) {
+                    } catch (error: unknown) {
                         return {
                             content: [
                                 {
                                     type: "text",
-                                    text: `Failed to download attachment: ${error.message}`,
+                                    text: `Failed to download attachment: ${errorMessage(error)}`,
                                 },
                             ],
                             isError: true,
@@ -1269,12 +1265,12 @@ async function main() {
                 default:
                     throw new Error(`Unknown tool: ${name}`);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             return {
                 content: [
                     {
                         type: "text",
-                        text: `Error: ${error.message}`,
+                        text: `Error: ${errorMessage(error)}`,
                     },
                 ],
                 isError: true,

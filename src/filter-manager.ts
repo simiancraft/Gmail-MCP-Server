@@ -3,131 +3,108 @@
  * Provides comprehensive filter management functionality
  */
 
-// Type definitions for Gmail API filters
-export interface GmailFilterCriteria {
-    from?: string;
-    to?: string;
-    subject?: string;
-    query?: string;
-    negatedQuery?: string;
-    hasAttachment?: boolean;
-    excludeChats?: boolean;
-    size?: number;
-    sizeComparison?: "unspecified" | "smaller" | "larger";
-}
+import type { gmail_v1 } from "googleapis";
+import { errorMessage } from "./utl.js";
 
-export interface GmailFilterAction {
-    addLabelIds?: string[];
-    removeLabelIds?: string[];
-    forward?: string;
-}
+type Gmail = gmail_v1.Gmail;
+export type GmailFilter = gmail_v1.Schema$Filter;
+export type GmailFilterCriteria = gmail_v1.Schema$FilterCriteria;
+export type GmailFilterAction = gmail_v1.Schema$FilterAction;
 
-export interface GmailFilter {
-    id?: string;
-    criteria: GmailFilterCriteria;
-    action: GmailFilterAction;
+function errorCode(error: unknown): number | undefined {
+    if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        typeof (error as { code: unknown }).code === "number"
+    ) {
+        return (error as { code: number }).code;
+    }
+    return undefined;
 }
 
 /**
  * Creates a new Gmail filter
- * @param gmail - Gmail API instance
- * @param criteria - Filter criteria to match messages
- * @param action - Actions to perform on matching messages
- * @returns The newly created filter
  */
 export async function createFilter(
-    gmail: any,
+    gmail: Gmail,
     criteria: GmailFilterCriteria,
     action: GmailFilterAction,
-) {
+): Promise<GmailFilter> {
     try {
-        const filterBody: GmailFilter = {
-            criteria,
-            action,
-        };
-
         const response = await gmail.users.settings.filters.create({
             userId: "me",
-            requestBody: filterBody,
+            requestBody: { criteria, action },
         });
-
         return response.data;
-    } catch (error: any) {
-        if (error.code === 400) {
-            throw new Error(
-                `Invalid filter criteria or action: ${error.message}`,
-            );
+    } catch (error: unknown) {
+        const msg = errorMessage(error);
+        if (errorCode(error) === 400) {
+            throw new Error(`Invalid filter criteria or action: ${msg}`);
         }
-        throw new Error(`Failed to create filter: ${error.message}`);
+        throw new Error(`Failed to create filter: ${msg}`);
     }
 }
 
 /**
  * Lists all Gmail filters
- * @param gmail - Gmail API instance
- * @returns Array of all filters
  */
-export async function listFilters(gmail: any) {
+export async function listFilters(
+    gmail: Gmail,
+): Promise<{ filters: GmailFilter[]; count: number }> {
     try {
         const response = await gmail.users.settings.filters.list({
             userId: "me",
         });
-
-        const filters = response.data.filters || [];
-
-        return {
-            filters,
-            count: filters.length,
-        };
-    } catch (error: any) {
-        throw new Error(`Failed to list filters: ${error.message}`);
+        const filters: GmailFilter[] = response.data.filter || [];
+        return { filters, count: filters.length };
+    } catch (error: unknown) {
+        throw new Error(`Failed to list filters: ${errorMessage(error)}`);
     }
 }
 
 /**
  * Gets a specific Gmail filter by ID
- * @param gmail - Gmail API instance
- * @param filterId - ID of the filter to retrieve
- * @returns The filter details
  */
-export async function getFilter(gmail: any, filterId: string) {
+export async function getFilter(
+    gmail: Gmail,
+    filterId: string,
+): Promise<GmailFilter> {
     try {
         const response = await gmail.users.settings.filters.get({
             userId: "me",
             id: filterId,
         });
-
         return response.data;
-    } catch (error: any) {
-        if (error.code === 404) {
+    } catch (error: unknown) {
+        if (errorCode(error) === 404) {
             throw new Error(`Filter with ID "${filterId}" not found.`);
         }
-        throw new Error(`Failed to get filter: ${error.message}`);
+        throw new Error(`Failed to get filter: ${errorMessage(error)}`);
     }
 }
 
 /**
  * Deletes a Gmail filter
- * @param gmail - Gmail API instance
- * @param filterId - ID of the filter to delete
- * @returns Success message
  */
-export async function deleteFilter(gmail: any, filterId: string) {
+export async function deleteFilter(
+    gmail: Gmail,
+    filterId: string,
+): Promise<{ success: true; message: string }> {
     try {
         await gmail.users.settings.filters.delete({
             userId: "me",
             id: filterId,
         });
-
         return {
             success: true,
             message: `Filter "${filterId}" deleted successfully.`,
         };
-    } catch (error: any) {
-        if (error.code === 404) {
+    } catch (error: unknown) {
+        if (errorCode(error) === 404) {
             throw new Error(`Filter with ID "${filterId}" not found.`);
         }
-        throw new Error(`Failed to delete filter: ${error.message}`);
+        throw new Error(`Failed to delete filter: ${errorMessage(error)}`);
     }
 }
 
@@ -218,20 +195,19 @@ export const filterTemplates = {
     }),
 };
 
-export function formatFilterCriteria(
-    criteria: Record<string, unknown>,
-): string {
+export function formatFilterCriteria(criteria: GmailFilterCriteria): string {
     return Object.entries(criteria)
-        .filter(([_, value]) => value !== undefined)
+        .filter(([_, value]) => value !== undefined && value !== null)
         .map(([key, value]) => `${key}: ${value}`)
         .join(", ");
 }
 
-export function formatFilterAction(action: Record<string, unknown>): string {
+export function formatFilterAction(action: GmailFilterAction): string {
     return Object.entries(action)
         .filter(
             ([_, value]) =>
                 value !== undefined &&
+                value !== null &&
                 (Array.isArray(value) ? value.length > 0 : true),
         )
         .map(
