@@ -1,7 +1,6 @@
 # Gmail MCP Server
 
 [![CI](https://github.com/simiancraft/Gmail-MCP-Server/actions/workflows/release.yml/badge.svg)](https://github.com/simiancraft/Gmail-MCP-Server/actions/workflows/release.yml)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=simiancraft_Gmail-MCP-Server&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=simiancraft_Gmail-MCP-Server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
